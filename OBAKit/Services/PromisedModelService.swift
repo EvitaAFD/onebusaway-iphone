@@ -277,3 +277,23 @@ extension PromisedModelService {
         return unparsedDataSource.buildGETRequest(withPath: path, queryParameters: nil)
     }
 }
+
+// MARK: - Vehicle Search
+@objc extension PromisedModelService {
+    @objc public func requestVehicles(in region: OBARegionV2) -> PromiseWrapper {
+        let request = buildRequest(region: region)
+        let wrapper = PromiseWrapper.init(request: request)
+
+        wrapper.promise = wrapper.promise.then { networkResponse -> NetworkResponse in
+            let vehicleIDs = (try? JSONSerialization.jsonObject(with: networkResponse.object as! Data, options: [])) ?? []
+            return NetworkResponse.init(object: vehicleIDs, URLResponse: networkResponse.URLResponse, urlRequest: networkResponse.urlRequest)
+        }
+
+        return wrapper
+    }
+
+    private func buildRequest(region: OBARegionV2) -> OBAURLRequest {
+        let path = "/api/v1/regions/\(region.identifier)/vehicles"
+        return obacoJsonDataSource.buildGETRequest(withPath: path, queryParameters: nil)
+    }
+}
