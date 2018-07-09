@@ -31,6 +31,7 @@
 #import "ISHHoverBar.h"
 #import "OBAToastView.h"
 #import "OBAApplicationDelegate.h"
+#import "OBAArrivalAndDepartureViewController.h"
 
 static const NSUInteger kShowNClosestStops = 4;
 static const double kStopsInRegionRefreshDelayOnDrag = 0.1;
@@ -268,6 +269,31 @@ static const double kStopsInRegionRefreshDelayOnDrag = 0.1;
     }
     else if (OBASearchTypeStopId == target.searchType) {
         [self displayStopControllerForStopID:target.searchArgument];
+    }
+    else if ([target isKindOfClass:OBAVehicleIDNavigationTarget.class]) {
+        [SVProgressHUD show];
+        OBAVehicleIDNavigationTarget *vehicleNavTarget = (OBAVehicleIDNavigationTarget*)target;
+        PromiseWrapper *wrapper = [self.modelService requestVehiclesIn:self.modelDAO.currentRegion];
+        wrapper.anyPromise.then(^(NetworkResponse *response) {
+            NSArray *vehicleIDs = response.object;
+            NSString *match = nil;
+            for (NSString *vehicle in vehicleIDs) {
+                if ([vehicle hasSuffix:vehicleNavTarget.query]) {
+                    match = vehicle;
+                    break;
+                }
+            }
+
+            return [self.modelService requestVehicleTrip:match].anyPromise;
+        }).then(^(NetworkResponse *response) {
+            OBATripDetailsV2 *tripDetails = (OBATripDetailsV2 *)response.object;
+            OBAArrivalAndDepartureViewController *controller = [[OBAArrivalAndDepartureViewController alloc] initWithTripInstance:tripDetails.tripInstance];
+            [self.navigationController pushViewController:controller animated:YES];
+        }).catch(^(NSError *error) {
+            [AlertPresenter showError:error presentingController:self];
+        }).always(^{
+            [SVProgressHUD dismiss];
+        });
     }
     else {
         [self.mapDataLoader searchWithTarget:target];

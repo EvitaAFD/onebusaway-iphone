@@ -280,20 +280,51 @@ extension PromisedModelService {
 
 // MARK: - Vehicle Search
 @objc extension PromisedModelService {
+    /// Returns a PromiseWrapper that resolves to an array of fully-qualified vehicle IDs for the given region,
+    /// suitable for passing along to `requestVehicleTrip()`.
+    ///
+    /// - Parameter region: The region from which to load all vehicle IDs
+    /// - Returns: A `PromiseWrapper` that resolves to `[String]`
     @objc public func requestVehicles(in region: OBARegionV2) -> PromiseWrapper {
-        let request = buildRequest(region: region)
+        let request = buildVehicleListRequest(region: region)
         let wrapper = PromiseWrapper.init(request: request)
 
         wrapper.promise = wrapper.promise.then { networkResponse -> NetworkResponse in
-            let vehicleIDs = (try? JSONSerialization.jsonObject(with: networkResponse.object as! Data, options: [])) ?? []
-            return NetworkResponse.init(object: vehicleIDs, URLResponse: networkResponse.URLResponse, urlRequest: networkResponse.urlRequest)
+            return NetworkResponse.init(object: networkResponse.object, URLResponse: networkResponse.URLResponse, urlRequest: networkResponse.urlRequest)
         }
 
         return wrapper
     }
 
-    private func buildRequest(region: OBARegionV2) -> OBAURLRequest {
+    private func buildVehicleListRequest(region: OBARegionV2) -> OBAURLRequest {
         let path = "/api/v1/regions/\(region.identifier)/vehicles"
         return obacoJsonDataSource.buildGETRequest(withPath: path, queryParameters: nil)
+    }
+
+    /// Returns a PromiseWrapper that resolves to an OBATripDetailsV2 object.
+    ///
+    /// - Parameter vehicleID: The vehicle for which to retrieve trip details.
+    /// - Returns: a PromiseWrapper that resolves to trip details.
+    @objc public func requestVehicleTrip(_ vehicleID: String) -> PromiseWrapper {
+        let request = buildTripForVehicleRequest(vehicleID)
+        let wrapper = PromiseWrapper(request: request)
+
+        wrapper.promise = wrapper.promise.then { response -> NetworkResponse in
+            var error: NSError?
+            let entryWithRefs = self.modelFactory.getTripDetailsV2(fromJSON: response.object as! [AnyHashable: Any], error: &error)
+            if let error = error { throw error }
+
+            let tripDetails = entryWithRefs.entry as! OBATripDetailsV2
+
+            return NetworkResponse.init(object: tripDetails, response: response)
+        }
+
+        return wrapper
+    }
+
+    private func buildTripForVehicleRequest(_ vehicleID: String) -> OBAURLRequest {
+        let encodedID = OBAURLHelpers.escapePathVariable(vehicleID)
+        let path = "/api/where/trip-for-vehicle/\(encodedID).json"
+        return obaJsonDataSource.buildGETRequest(withPath: path, queryParameters: nil)
     }
 }

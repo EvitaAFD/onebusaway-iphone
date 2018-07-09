@@ -819,6 +819,9 @@
 /* Formatted string for Search for Stop Number: */
 "map_search.search_for_stop_number" = "Stop Number:";
 
+/* Vehicle ID: <VEHICLE ID> */
+"map_search.search_for_vehicle_id" = "Vehicle ID:";
+
 /* Map Search: Recent Stops section title */
 "map_search.recent_stops_section_title" = "Recent Stops";
 
